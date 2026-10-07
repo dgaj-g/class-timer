@@ -1,0 +1,61 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Class Timer</title>
+<style>
+html,body{margin:0;height:100%;background:#1A3A6B;color:#fff;font-family:"Avenir Next","Helvetica Neue",Arial,sans-serif;overflow:hidden}
+.wrap{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3vh}
+#task{font-size:5vh;font-weight:600;text-align:center;padding:0 4vw;outline:none;min-width:40vw;min-height:6vh}
+#task:empty:before{content:"Click here to type the task (optional)";opacity:.4}
+#t{font-size:34vh;font-weight:800;letter-spacing:1vw;line-height:1;font-variant-numeric:tabular-nums}
+.bar{width:70vw;height:2.4vh;background:#ffffff26;border-radius:2vh;overflow:hidden}
+.bar div{height:100%;width:100%;background:#E4B824;transition:width 1s linear}
+.set{display:flex;align-items:center;gap:1vw;font-size:2.6vh;font-weight:700}
+.set input{font:inherit;width:6vw;min-width:56px;text-align:center;border:0;border-radius:1vh;padding:1vh .5vw;font-size:3vh;color:#1A3A6B}
+.btns{display:flex;gap:1.5vw;flex-wrap:wrap;justify-content:center}
+button{font:inherit;font-size:2.6vh;font-weight:700;border:0;border-radius:1.2vh;padding:1.2vh 2.2vw;background:#ffffff1f;color:#fff;cursor:pointer}
+button.main{background:#E4B824;color:#1A3A6B}
+body.last #t{color:#ffcf4a} body.done{background:#b3261e}
+body.running .set,body.running .quick{opacity:.35}
+.hint{font-size:1.8vh;opacity:.6;text-align:center}
+</style></head><body>
+<div class="wrap">
+  <div id="task" contenteditable="true"></div>
+  <div id="t">5:00</div>
+  <div class="bar"><div id="b"></div></div>
+  <div class="set">
+    <input id="mm" type="number" min="0" max="180" value="5" aria-label="Minutes"> min
+    <input id="ss" type="number" min="0" max="59" value="0" aria-label="Seconds"> sec
+    <button onclick="setFromBoxes()">Set time</button>
+  </div>
+  <div class="btns quick">
+    <button onclick="setM(1)">1 min</button><button onclick="setM(2)">2 min</button><button onclick="setM(5)">5 min</button><button onclick="setM(10)">10 min</button><button onclick="setM(15)">15 min</button>
+  </div>
+  <div class="btns">
+    <button class="main" id="go" onclick="toggle()">Start</button><button onclick="reset()">Reset</button><button id="snd" onclick="sound=!sound;this.textContent=sound?'Ticking on':'Ticking off'">Ticking on</button>
+  </div>
+  <div class="hint">Type the minutes and seconds, then Set time (or press Enter) · Space starts and pauses · F for full screen<br>Turn the board's sound up: it ticks every second, louder in the last 10, and rings at zero.</div>
+</div>
+<script>
+let total=300,left=300,timer=null,sound=true,ac=null;
+const T=document.getElementById('t'),B=document.getElementById('b'),G=document.getElementById('go'),MM=document.getElementById('mm'),SS=document.getElementById('ss');
+function ctx(){if(!ac)ac=new (window.AudioContext||window.webkitAudioContext)();if(ac.state==='suspended')ac.resume();return ac}
+function tick(hi){const a=ctx(),o=a.createOscillator(),g=a.createGain(),n=a.currentTime;
+  o.type='square';o.frequency.value=hi?1600:1100;g.gain.setValueAtTime(hi?.35:.22,n);g.gain.exponentialRampToValueAtTime(.001,n+.05);
+  o.connect(g).connect(a.destination);o.start(n);o.stop(n+.06)}
+function bell(){const a=ctx();[0,.35,.7].forEach(d=>{const o=a.createOscillator(),g=a.createGain(),n=a.currentTime+d;
+  o.type='sine';o.frequency.value=880;g.gain.setValueAtTime(.5,n);g.gain.exponentialRampToValueAtTime(.001,n+1.2);o.connect(g).connect(a.destination);o.start(n);o.stop(n+1.3)})}
+function fmt(s){const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=String(s%60).padStart(2,'0');return h?h+':'+String(m).padStart(2,'0')+':'+x:m+':'+x}
+function show(){T.textContent=fmt(left);B.style.width=(total?left/total*100:0)+'%';
+  document.body.classList.toggle('last',left<=10&&left>0);document.body.classList.toggle('done',left===0)}
+function step(){left--;show();if(left<=0){clearInterval(timer);timer=null;document.body.classList.remove('running');G.textContent='Start';bell();return}
+  if(sound)tick(left<=10)}
+function toggle(){ctx();if(timer){clearInterval(timer);timer=null;document.body.classList.remove('running');G.textContent='Resume'}
+  else{if(left<=0)reset();if(left<=0)return;timer=setInterval(step,1000);document.body.classList.add('running');G.textContent='Pause';if(sound)tick(false)}}
+function reset(){clearInterval(timer);timer=null;document.body.classList.remove('running');left=total;G.textContent='Start';show()}
+function setSecs(s){total=Math.max(0,Math.min(s,3*3600));MM.value=Math.floor(total/60);SS.value=total%60;reset()}
+function setM(m){setSecs(m*60)}
+function setFromBoxes(){setSecs((parseInt(MM.value)||0)*60+(parseInt(SS.value)||0));MM.blur();SS.blur()}
+[MM,SS].forEach(i=>i.addEventListener('keydown',e=>{if(e.key==='Enter')setFromBoxes()}));
+document.addEventListener('keydown',e=>{const a=document.activeElement;if(a.id==='task'||a.tagName==='INPUT')return;
+  if(e.code==='Space'){e.preventDefault();toggle()} if(e.key==='f'||e.key==='F'){document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()}});
+const q=new URLSearchParams(location.search);if(q.has('m')||q.has('s'))setSecs((parseInt(q.get('m'))||0)*60+(parseInt(q.get('s'))||0));else show();
+</script></body></html>
